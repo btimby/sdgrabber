@@ -11,6 +11,7 @@ pylint = "*"
 flake8 = "*"
 responses = "*"
 splitstream = "*"
+lxml = "*"
 
 [requires]
 python_version = "3.6"
