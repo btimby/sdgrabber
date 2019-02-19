@@ -21,7 +21,7 @@ setup(
     description='Schedules Direct client for Python',
     long_description='Implements API client for Schedules Direct.'
                      ' Can also save xmltv.xml file.',
-    requirements=convert_deps_to_pip(pipfile['packages'], r=False),
+    install_requires=convert_deps_to_pip(pipfile['packages'], r=False),
     author='Ben Timby',
     author_email='btimby@gmail.com',
     url='http://github.com/btimby/' + NAME + '/',
