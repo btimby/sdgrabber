@@ -4,13 +4,13 @@ import hashlib
 import logging
 import json
 
-from pprint import pprint
+from datetime import timedelta
 from itertools import groupby, chain, islice
 
 from lxml import etree
 
 from stores import NullStore, PickleStore
-from models import ProgramModel, LineupModel
+from models import ProgramModel, LineupModel, ScheduleModel
 
 
 LOGGER = logging.getLogger(__name__)
@@ -50,7 +50,8 @@ class SDClient(object):
     def _request(self, method, path, headers=None, data=None, **kwargs):
         _headers = {
             'Content-Type': 'application/json',
-            'User-Agent': 'Python / pysd 1.0',
+            'User-Agent': 'Python / pysd 1.0 / '
+                          'https://github.com/btimby/pysd/',
         }
         if self.token is not None:
             _headers['Token'] = self.token
@@ -76,7 +77,7 @@ class SDClient(object):
             'post', '/token',
             data={'username': self.username, 'password': password_hash})
         if data['code'] != 0:
-            raise ServiceOffline(data['response'], r)
+            raise ServiceOffline(data['response'], data)
         self.token = data['token']
 
     def get_lineups(self):
@@ -104,7 +105,7 @@ class SDClient(object):
             ))
 
             # TODO: yield a model here to aid in extraction of data.
-            yield data
+            yield LineupModel(data)
 
         # Store the station_ids for the next step...
         self._station_ids = station_ids
@@ -171,8 +172,7 @@ class SDClient(object):
                     ((s['programID'], s['md5']) for s in schedule['programs'])
                 )
 
-                # TODO: yield a model here to aid in extraction of data.
-                yield schedule
+                yield ScheduleModel(schedule)
 
         # Store program_ids for the next step...
         self._program_ids = program_ids
@@ -181,11 +181,12 @@ class SDClient(object):
         # Map program IDs to their station / airtime for data merge.
         schedules = {}
         for station in self._get_schedules():
-            for program in station['programs']:
-                schedules[program['programID']] = {
-                    'airDateTime': program['airDateTime'],
-                    'duration': program['duration'],
-                    'stationID': station['stationID']
+            for program in station.programs:
+                # Use `.data` attribute to get original dictionary values.
+                schedules[program.id] = {
+                    'airDateTime': program.data['airDateTime'],
+                    'duration': program.data['duration'],
+                    'stationID': station.data['stationID'],
                 }
 
         # This phase is simpler, we have just a list of programIDs and hashes
@@ -268,9 +269,7 @@ def main():
     api = SDClient(username, password, store)
     api.login()
 
-    with open('xmltv.xml', 'wb') as f, etree.xmlfile(f) as x, open('programs.json', 'w') as j:
-        j.write('[\n')
-
+    with open('xmltv.xml', 'wb') as f, etree.xmlfile(f) as x:
         attrs = {
             'source-info-url': 'https://www.schedulesdirect.org/',
             'source-info-name': 'Schedules Direct',
@@ -280,32 +279,56 @@ def main():
         with x.element('tv', attrs):
 
             LOGGER.info('Fetching lineups...')
-            for o in api.get_lineups():
-                for c in o['stations']:
+            for lineup in api.get_lineups():
+                for station in lineup.stations:
                     attrs = {
-                        'id': c['stationID']
+                        'id': station.id,
                     }
                     with x.element('channel', attrs):
                         with x.element('display-name'):
-                            x.write('foo')
-                        if 'logo' in c:
-                            x.element('icon', {'src': c['logo']['URL']})
+                            x.write(station.name)
+                        if station.logo:
+                            x.element('icon', {'src': station.logo})
 
             LOGGER.info('Got lineups, fetching programs...')
             for program in api.get_programs():
-                j.write(',\n')
+                start = program.schedule.airdatetime
+                duration = program.schedule.duration
+                stop = start + timedelta(seconds=duration)
                 attrs = {
-                    'start': program.schedule.airdatetime,
-                    # TODO: parse airDateTime and add duration...
-                    # 'stop': 
+                    'start': start.strftime('%Y%m%d%H%M%S'),
+                    'stop': stop.strftime('%Y%m%d%H%M%S'),
+                    'duration': duration,
                     'channel': program.station.id,
                 }
                 with x.element('programme'):
                     with x.element('title'):
                         x.write(program.title)
-                    #x.element()
 
-        j.write(']\n')
+                    if program.subtitle:
+                        with x.element('sub-title', {'lang': 'en'}):
+                            x.write(program.subtitle)
+
+                    if program.description:
+                        with x.element('desc', {'lang': 'en'}):
+                            x.write(program.description)
+
+                    if program.actors:
+                        with x.element('credits'):
+                            for actor in program.actors:
+                                with x.element('actor'):
+                                    x.write(actor.name)
+
+                    for genre in program.genres:
+                        with x.element('category', {'lang': 'en'}):
+                            x.write(genre)
+
+                    if program.orig_airdate:
+                        with x.element('date'):
+                            x.write(
+                                program.orig_airdate.strftime('%Y%m%d%H%M%S'))
+
+                    # x.element()
 
 
 if __name__ == '__main__':

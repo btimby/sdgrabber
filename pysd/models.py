@@ -1,6 +1,7 @@
 from datetime import datetime
 from itertools import chain
 from pprint import pprint
+from functools import wraps
 
 
 DATETIME_FMT = ''
@@ -30,6 +31,30 @@ def _parse_date(text):
     if text is None:
         return
     return datetime.strptime(text, '%Y-%m-%d')
+
+
+def handle_parse_error(fn):
+    @wraps(fn)
+    def inner(*args, **kwargs):
+        try:
+            return fn(*args, **kwargs)
+
+        except (TypeError, AttributeError) as e:
+            # TODO: interrogate `e`
+            data = None
+            if len(args) > 0:
+                data = getattr(args[0], 'data', None)
+            raise ParseError('Error parsing data', fn.__name__, data, e)
+
+    return inner
+
+
+class ParseError(Exception):
+    def __init__(self, message, attr, data, e):
+        super().__init__(message)
+        self.attr = attr
+        self.data = data
+        self.orig_exception = e
 
 
 class BaseModel(object):
@@ -101,7 +126,10 @@ class LineupModel(BaseModel):
         ]
     }
     '''
-    pass
+    @property
+    @handle_parse_error
+    def stations(self):
+        return [StationModel(s) for s in self.data['stations']]
 
 
 class ProgramModel(BaseModel):
@@ -147,76 +175,136 @@ class ProgramModel(BaseModel):
         "stationID": "10161"
     }
     '''
+    @handle_parse_error
     def __init__(self, data):
         super().__init__(data)
-        self.actors = data.get('cast', [])
         self.genres = data.get('genres', [])
-        self.entity_type = data['entityType']
-        self.show_type = data['showType']
+        self.entity_type = data.get('entityType', None)
+        self.show_type = data.get('showType', None)
 
-    def _get_titles(self):
+    @handle_parse_error
+    def _get_people(self, role):
+        people = [PersonModel(p) for p in self.data.get('role', [])]
+        return sorted(people, key=lambda p: p.billing_order)
+
+    @property
+    @handle_parse_error
+    def actors(self):
+        return self._get_people(role='cast')
+
+    cast = actors
+
+    @property
+    @handle_parse_error
+    def crew(self):
+        return self._get_people(role='crew')
+
+    @property
+    @handle_parse_error
+    def titles(self):
         return {
             int(tn[5:]): tt for tn, tt
             in chain(*[t.items() for t in self.data.get('titles', {})])
         }
 
-    def _get_descriptions(self):
+    @property
+    @handle_parse_error
+    def descriptions(self):
         return {
-            int(tn[12:]): tt for
+            int(tn[12:]): tt[0]['description'] for
             tn, tt in self.data.get('descriptions', {}).items()
         }
 
     @property
-    def short_title(self):
-        titles = self._get_titles()
+    @handle_parse_error
+    def title(self):
+        titles = self.titles
         if titles:
             return titles[min(titles.keys())]
 
     @property
-    def long_title(self):
-        titles = self._get_titles()
+    @handle_parse_error
+    def title_long(self):
+        titles = self.titles
         if titles:
             return titles[max(titles.keys())]
 
     @property
-    def title(self):
-        return self.short_title
+    @handle_parse_error
+    def subtitle(self):
+        return self.title_long
 
     @property
-    def short_desc(self):
-        descs = self._get_descriptions()
+    @handle_parse_error
+    def description_short(self):
+        descs = self.descriptions
         if descs:
             return descs[min(descs.keys())]
 
     @property
-    def long_desc(self):
-        descs = self._get_descriptions()
+    @handle_parse_error
+    def description(self):
+        descs = self.descriptions
         if descs:
             return descs[max(descs.keys())]
 
     @property
-    def description(self):
-        return self.long_desc
-
-    @property
+    @handle_parse_error
     def orig_airdate(self):
         return _parse_date(self.data.get('originalAirDate', None))
 
-
     @property
+    @handle_parse_error
     def schedule(self):
-        return ScheduleModel(self.data)
+        return ProgramScheduleModel(self.data)
 
     @property
+    @handle_parse_error
     def station(self):
         return StationModel(self.data)
 
     @property
+    @handle_parse_error
     def artwork(self):
         return [ArtModel(a) for a in self.data.get('artwork', [])]
 
 
+class PersonModel(BaseModel):
+    '''
+    Represents a person.
+
+    {
+        "billingOrder": "01",
+        "role": "Actor",
+        "nameId": "68293",
+        "personId": "68293",
+        "name": "Lauren Graham"
+    }
+    '''
+
+    @handle_parse_error
+    def __init__(self, data):
+        super().__init__(data)
+        # Or is it roleId? And why camel case here instead of roleID?
+        self.id = data['personId']
+        self.name = data['name']
+        self.billing_order = data.get('billingOrder', 0)
+        self.role = data['role']
+
+
 class ArtModel(BaseModel):
+    '''
+    Represents artwork.
+
+    {
+        "URL": "https://s3.amazonaws.com/schedulesdirect/assets/stationLogos/s10098_h3_ba.png",
+        "height": 270,
+        "width": 360,
+        "md5": "f27da5a7604ffbc6bfd532",
+        "source": "Gracenote"
+    }
+    '''
+    @handle_parse_error
     def __init__(self, data):
         super().__init__(data)
         self.width = int(data['width'])
@@ -227,14 +315,87 @@ class ArtModel(BaseModel):
         self.category = data['category']
 
     @property
+    @handle_parse_error
     def url(self):
         return _to_absolute_uri(self.data['uri'])
 
 
 class StationModel(BaseModel):
+    '''
+    Represents a station.
+
+    {
+        "stationID": "11299",
+        "name": "WBBM",
+        "callsign": "WBBM",
+        "affiliate": "CBS",
+        "broadcastLanguage": [
+            "en"
+        ],
+        "descriptionLanguage": [
+            "en"
+        ],
+        "broadcaster": {
+            "city": "Chicago",
+            "state": "IL",
+            "postalcode": "60611",
+            "country": "United States"
+        },
+        "stationLogo": [
+            {
+                "URL": "https://s3.amazonaws.com/schedulesdirect/assets/stationLogos/s10098_h3_aa.png",
+                "height": 270,
+                "width": 360,
+                "md5": "3461b24f174a57f844fa56",
+                "source": "Gracenote"
+            },
+            {
+                "URL": "https://s3.amazonaws.com/schedulesdirect/assets/stationLogos/s10098_h3_ba.png",
+                "height": 270,
+                "width": 360,
+                "md5": "f27da5a7604ffbc6bfd532",
+                "source": "Gracenote"
+            }
+        ],
+        "logo": {
+            "URL": "https://s3.amazonaws.com/schedulesdirect/assets/stationLogos/s10098_h3_aa.png",
+            "height": 270,
+            "width": 360,
+            "md5": "3461b24f174a57f844fa56"
+    }
+
+    '''
+    @handle_parse_error
     def __init__(self, data):
         super().__init__(data)
         self.id = data['stationID']
+
+    @property
+    @handle_parse_error
+    def name(self):
+        try:
+            return self.data['name']
+
+        except KeyError:
+            return
+
+    @property
+    @handle_parse_error
+    def callsign(self):
+        try:
+            return self.data['callsign']
+
+        except KeyError:
+            return
+
+    @property
+    @handle_parse_error
+    def logo(self):
+        try:
+            return ArtModel(self.data['logo'])
+
+        except KeyError:
+            return
 
 
 class ScheduleModel(BaseModel):
@@ -262,10 +423,37 @@ class ScheduleModel(BaseModel):
         ]
     }
     '''
+    @handle_parse_error
     def __init__(self, data):
         super().__init__(data)
-        self.duration = int(data['duration'])
+        self.id = data['stationID']
+        self.station = StationModel(data)
 
     @property
+    @handle_parse_error
+    def programs(self):
+        return [ProgramScheduleModel(ps) for ps in self.data['programs']]
+
+
+class ProgramScheduleModel(BaseModel):
+    '''
+    Represents a Program Schedule.
+
+    {
+        'programID': 'SH003777210000',
+        'airDateTime': '2019-02-19T20:00:00Z',
+        'duration': 10800,
+        'md5': 'Tybuis3yn7VqQ0PSYtFuMw'
+    }
+    '''
+    @handle_parse_error
+    def __init__(self, data):
+        super().__init__(data)
+        self.id = data['programID']
+        self.duration = int(data['duration'])
+        self.program = ProgramModel(data)
+
+    @property
+    @handle_parse_error
     def airdatetime(self):
         return _parse_datetime(self.data['airDateTime'])
