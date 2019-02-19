@@ -1,25 +1,33 @@
 #!/bin/env python
 
 from distutils.core import setup
+from pipenv.project import Project
+from pipenv.utils import convert_deps_to_pip
 
-name = 'pysd'
-version = '0.1'
 
-with open('LICENSE', 'r') as l:
-    license = l.read()
+NAME = 'pysd'
+VERSION = '0.1'
+
+
+with open('LICENSE', 'r') as f:
+    license = f.read()
+
+pipfile = Project(chdir=False).parsed_pipfile
+
 
 setup(
-    name = name,
-    version = version,
-    description = 'Schedules Direct client for Python',
-    long_description = 'Implements API client for Schedules Direct.' \
-                       ' Can also save xmltv.xml file.',
-    author = 'Ben Timby',
-    author_email = 'btimby@gmail.com',
-    url = 'http://github.com/btimby/' + name + '/',
-    license = license,
-    packages = ["pysd"],
-    classifiers = [
+    name=NAME,
+    version=VERSION,
+    description='Schedules Direct client for Python',
+    long_description='Implements API client for Schedules Direct.'
+                     ' Can also save xmltv.xml file.',
+    requirements=convert_deps_to_pip(pipfile['packages'], r=False),
+    author='Ben Timby',
+    author_email='btimby@gmail.com',
+    url='http://github.com/btimby/' + NAME + '/',
+    license=license,
+    packages=["pysd"],
+    classifiers=[
         'License :: OSI Approved :: MIT License',
         'Programming Language :: Python :: 3.0',
         'Programming Language :: Python :: 3.1',
