@@ -457,6 +457,9 @@ class ScheduleModel(BaseModel):
         super().__init__(data)
         self.id = data['stationID']
         self.station = StationModel(data)
+        self.airdatetime = _parse_datetime(data['airDateTime'])
+        self.duration = int(data['duration'])
+        self.enddatetime = self.airdatetime + timedelta(seconds=self.duration)
 
     @property
     @handle_parse_error
