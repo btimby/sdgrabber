@@ -503,9 +503,13 @@ class ProgramScheduleModel(BaseModel):
     @property
     @handle_parse_error
     def ratings(self):
-        return [r['code'] for r in self.data['ratings']]
+        ratings = self.data.get('ratings', [])
+        return [r['code'] for r in ratings]
 
     @property
     @handle_parse_error
     def rating(self):
-        return self.ratings[0]
+        ratings = self.ratings
+        if len(ratings) == 0:
+            return
+        return ratings[0]
