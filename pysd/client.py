@@ -25,6 +25,11 @@ class ErrorResponse(Exception):
         self.data = data
 
 
+class LoginRequired(Exception):
+    def __init__(self):
+        super().__init__('Call login() first.')
+
+
 class SDClient(object):
     token = None
     base_url = 'https://json.schedulesdirect.org/20141201/'
@@ -72,6 +77,9 @@ class SDClient(object):
         '''
         Downloads system status and obtains the lineups.
         '''
+        if self.token is None:
+            raise LoginRequired()
+
         data = self._request('get', '/status')
         # While not a hash, we can use the modified date like one. If the
         # modified date differs from what we have in our store, then the lineup
@@ -99,6 +107,9 @@ class SDClient(object):
         self._station_ids = station_ids
 
     def get_schedules(self):
+        if self.token is None:
+            raise LoginRequired()
+
         # We need the data that this method caches. If the user did not call it
         # call it now.
         if self._station_ids is None:
@@ -168,6 +179,9 @@ class SDClient(object):
         self._program_ids = program_ids
 
     def get_programs(self, lineups=None, schedules=None):
+        if self.token is None:
+            raise LoginRequired()
+
         if lineups is None:
             lineups = self.get_lineups()
         stations = {}
