@@ -1,10 +1,13 @@
 import unittest
 
+from datetime import timezone
+
 import responses
 from responses import GET, POST
 
 from pysd import SDClient, ErrorResponse
 from pysd.stores import _diff
+from pysd.models import _parse_datetime, _parse_date
 
 
 USERNAME = 'test_username'
@@ -85,6 +88,18 @@ class DiffTestCase(unittest.TestCase):
         new['c'] = 4
         new = list(new.items())
         self.assertEqual(list(_diff(old, new)), [('c')])
+
+
+class DateTimeTestCase(unittest.TestCase):
+    def test_utc(self):
+        dt = _parse_datetime("2014-10-03T00:00:00Z")
+        self.assertEqual(dt.tzinfo, timezone.utc)
+        self.assertEqual(dt.timetuple()[:6], (2014, 10, 3, 0, 0, 0))
+
+    def test_date(self):
+        dt = _parse_date("2014-10-03")
+        self.assertEqual(dt.tzinfo, timezone.utc)
+        self.assertEqual(dt.timetuple()[:6], (2014, 10, 3, 0, 0, 0))
 
 
 if __name__ == '__main__':

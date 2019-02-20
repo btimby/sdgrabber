@@ -1,10 +1,13 @@
-from datetime import datetime
+import time
+
+from datetime import date, datetime, timezone
 from itertools import chain
 from pprint import pprint
 from functools import wraps
 
 
-DATETIME_FMT = ''
+DATETIME_FMT = '%Y-%m-%dT%H:%M:%SZ'
+DATE_FMT = '%Y-%m-%d'
 
 
 def _to_absolute_uri(uri):
@@ -20,7 +23,10 @@ def _parse_datetime(text):
     # TODO: test that this supports UTC properly, all times are UTC.
     if text is None:
         return
-    return datetime.strptime(text, '%Y-%m-%dT%H:%M:%SZ')
+    dt = datetime.strptime(text, DATETIME_FMT)
+    return datetime(
+        dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second,
+        tzinfo=timezone.utc)
 
 
 def _parse_date(text):
@@ -30,7 +36,8 @@ def _parse_date(text):
     # TODO: test that this supports UTC properly, all times are UTC.
     if text is None:
         return
-    return datetime.strptime(text, '%Y-%m-%d')
+    dt = datetime.strptime(text, DATE_FMT)
+    return datetime(dt.year, dt.month, dt.day, tzinfo=timezone.utc)
 
 
 def handle_parse_error(fn):
@@ -187,6 +194,7 @@ class ProgramModel(BaseModel):
         "stationID": "10161"
     }
     '''
+
     @handle_parse_error
     def __init__(self, data):
         super().__init__(data)
@@ -316,6 +324,7 @@ class ArtModel(BaseModel):
         "source": "Gracenote"
     }
     '''
+
     @handle_parse_error
     def __init__(self, data):
         super().__init__(data)
@@ -388,8 +397,8 @@ class StationModel(BaseModel):
             "width": 360,
             "md5": "3461b24f174a57f844fa56"
     }
-
     '''
+
     @handle_parse_error
     def __init__(self, data):
         super().__init__(data)
@@ -443,6 +452,7 @@ class ScheduleModel(BaseModel):
         ]
     }
     '''
+
     @handle_parse_error
     def __init__(self, data):
         super().__init__(data)
@@ -466,6 +476,7 @@ class ProgramScheduleModel(BaseModel):
         'md5': 'Tybuis3yn7VqQ0PSYtFuMw'
     }
     '''
+
     @handle_parse_error
     def __init__(self, data):
         super().__init__(data)
