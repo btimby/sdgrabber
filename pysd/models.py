@@ -421,6 +421,7 @@ class StationModel(BaseModel):
         except KeyError:
             return
 
+    @property
     def channel(self):
         return self.data.get('channel', None)
 
