@@ -58,7 +58,7 @@ def main():
 
             i = 0
             for program in api.get_programs(lineups=lineups):
-                i += 0
+                i += 1
                 start = program.schedule.airdatetime
                 duration = program.schedule.duration
                 stop = start + timedelta(seconds=duration)
