@@ -1,8 +1,6 @@
 import os
 import logging
 
-from datetime import timedelta
-
 from lxml import etree
 
 from .client import SDGrabber
@@ -54,18 +52,15 @@ def main():
                         if station.logo:
                             x.element('icon', {'src': station.logo})
 
-            LOGGER.info('Got %i lineups, fetching programs...', i)
+            LOGGER.info('Got %i lineup(s), fetching programs...', i)
 
             i = 0
             for program in api.get_programs(lineups=lineups):
                 i += 1
-                start = program.schedule.airdatetime
-                duration = program.schedule.duration
-                stop = start + timedelta(seconds=duration)
                 attrs = {
-                    'start': start.strftime('%Y%m%d%H%M%S'),
-                    'stop': stop.strftime('%Y%m%d%H%M%S'),
-                    'duration': duration,
+                    'start': program.schedule.airdatetime.strftime('%Y%m%d%H%M%S'),
+                    'stop': program.schedule.enddatetime.strftime('%Y%m%d%H%M%S'),
+                    'duration': program.schedule.duration,
                     'channel': program.station.id,
                 }
                 with x.element('programme'):
