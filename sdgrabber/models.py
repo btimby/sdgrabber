@@ -494,3 +494,18 @@ class ProgramScheduleModel(BaseModel):
     @handle_parse_error
     def enddatetime(self):
         return self.airdatetime + timedelta(seconds=self.duration)
+
+    @property
+    @handle_parse_error
+    def audio_properties(self):
+        return self.data['audioProperties']
+
+    @property
+    @handle_parse_error
+    def ratings(self):
+        return [r['code'] for r in self.data['ratings']]
+
+    @property
+    @handle_parse_error
+    def rating(self):
+        return self.ratings[0]
