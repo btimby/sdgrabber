@@ -24,9 +24,7 @@ def _parse_datetime(text):
     if text is None:
         return
     dt = datetime.strptime(text, DATETIME_FMT)
-    return datetime(
-        dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second,
-        tzinfo=timezone.utc)
+    return dt.replace(tzinfo=timezone.utc)
 
 
 def _parse_date(text):
@@ -37,7 +35,7 @@ def _parse_date(text):
     if text is None:
         return
     dt = datetime.strptime(text, DATE_FMT)
-    return datetime(dt.year, dt.month, dt.day, tzinfo=timezone.utc)
+    return dt.replace(tzinfo=timezone.utc)
 
 
 def handle_parse_error(fn):
