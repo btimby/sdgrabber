@@ -6,9 +6,25 @@ from os.path import isfile
 from os.path import join as pathjoin
 
 
+def _diff(old, new):
+    '''
+    Compares two different data structures.
+
+    - old is a dictionary {key: value}
+    - new is a list of tupes: (key, value)
+
+    We want anything in new where the key or value does not match. Like
+    set(new).difference(list(old.items())) without the conversion.
+    '''
+    for key, hash in (item for item in new
+                      if old.get(item[0], None) != item[1]):
+        old[key] = hash
+        yield key
+
+
 class BaseStore(abc.ABC):
     @abc.abstractmethod
-    def save_lineups(self, hashes):
+    def save_lineups(self, lineups):
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -16,7 +32,7 @@ class BaseStore(abc.ABC):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def save_schedules(self, hashes):
+    def save_schedules(self, schedules):
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -24,31 +40,26 @@ class BaseStore(abc.ABC):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def save_programs(self, hashes):
+    def save_programs(self, programs):
         raise NotImplementedError()
 
     @abc.abstractmethod
     def load_programs(self):
         raise NotImplementedError()
 
-    def _diff(self, old, new):
-        for key, hash in (item for item in new if item[0] not in old):
-            old[key] = hash
-            yield key
-
     def diff_lineups(self, lineups):
         old = self.load_lineups()
-        yield from self._diff(old, lineups)
+        yield from _diff(old, lineups)
         self._lineups = old
 
     def diff_schedules(self, schedules):
         old = self.load_schedules()
-        yield from self._diff(old, schedules)
+        yield from _diff(old, schedules)
         self._schedules = old
 
     def diff_programs(self, programs):
         old = self.load_programs()
-        yield from self._diff(old, programs)
+        yield from _diff(old, programs)
         self._programs = old
 
     def save(self):
@@ -58,19 +69,19 @@ class BaseStore(abc.ABC):
 
 
 class NullStore(BaseStore):
-    def save_schedules(self, hashes):
+    def save_schedules(self, schedules):
         pass
 
     def load_schedules(self):
         return {}
 
-    def save_lineups(self, hashes):
+    def save_lineups(self, lineups):
         pass
 
     def load_lineups(self):
         return {}
 
-    def save_programs(self, hashes):
+    def save_programs(self, programs):
         pass
 
     def load_programs(self):
@@ -92,9 +103,9 @@ class PickleStore(BaseStore):
         with open(path, 'rb') as f:
             return pickle.load(f)
 
-    def save_lineups(self, schedules):
+    def save_lineups(self, lineups):
         with open(pathjoin(self.path, 'lineups.pysd'), 'wb') as f:
-            pickle.dump(schedules, f)
+            pickle.dump(lineups, f)
 
     def load_lineups(self):
         path = pathjoin(self.path, 'lineups.pysd')

@@ -15,7 +15,7 @@ LOGGER.addHandler(logging.NullHandler())
 
 def main():
     logger = logging.getLogger()
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.INFO)
     logger.addHandler(logging.StreamHandler())
 
     try:
@@ -39,7 +39,11 @@ def main():
         with x.element('tv', attrs):
 
             LOGGER.info('Fetching lineups...')
-            for lineup in api.get_lineups():
+            # Get lineups as a list so we can traverse it and also pass it to
+            # api._get_programs(). This saves it making a duplicate call.
+            i, lineups = 0, list(api.get_lineups())
+            for lineup in lineups:
+                i += 1
                 for station in lineup.stations:
                     attrs = {
                         'id': station.id,
@@ -50,8 +54,11 @@ def main():
                         if station.logo:
                             x.element('icon', {'src': station.logo})
 
-            LOGGER.info('Got lineups, fetching programs...')
-            for program in api.get_programs():
+            LOGGER.info('Got %i lineups, fetching programs...', i)
+
+            i = 0
+            for program in api.get_programs(lineups=lineups):
+                i += 0
                 start = program.schedule.airdatetime
                 duration = program.schedule.duration
                 stop = start + timedelta(seconds=duration)
@@ -89,7 +96,7 @@ def main():
                                 program.orig_airdate.strftime('%Y%m%d%H%M%S'))
 
                     # x.element()
-
+            LOGGER.info('Got %i programs.', i)
 
 if __name__ == '__main__':
     main()

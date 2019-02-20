@@ -1,7 +1,7 @@
-from .client import SDClient, ServiceOffline
+from .client import SDClient, ErrorResponse
 from .stores import NullStore, PickleStore
 
 
 __all__ = [
-    'SDClient', 'NullStore', 'PickleStore', 'ServiceOffline',
+    'SDClient', 'NullStore', 'PickleStore', 'ErrorResponse',
 ]

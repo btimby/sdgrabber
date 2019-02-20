@@ -126,10 +126,22 @@ class LineupModel(BaseModel):
         ]
     }
     '''
+
+    @property
+    @handle_parse_error
+    def map(self):
+        return {
+            s['stationID']: s for s in self.data['map']
+        }
+
     @property
     @handle_parse_error
     def stations(self):
-        return [StationModel(s) for s in self.data['stations']]
+        stations, map = [], self.map
+        for s in self.data['stations']:
+            s.update(map[s['stationID']])
+            stations.append(StationModel(s))
+        return stations
 
 
 class ProgramModel(BaseModel):
@@ -325,6 +337,19 @@ class StationModel(BaseModel):
     Represents a station.
 
     {
+        "channel": "55.29",
+        "virtualChannel": "55.29",
+        "deliverySystem": "ATSC",
+        "stationID": "80606",
+        "channelMajor": 55,
+        "channelMinor": 29,
+        "providerCallsign": "FSPLUS",
+        "matchType": "providerCallsign"
+    },
+
+    - and -
+
+    {
         "stationID": "11299",
         "name": "WBBM",
         "callsign": "WBBM",
@@ -373,20 +398,12 @@ class StationModel(BaseModel):
     @property
     @handle_parse_error
     def name(self):
-        try:
-            return self.data['name']
-
-        except KeyError:
-            return
+        return self.data.get('name', None)
 
     @property
     @handle_parse_error
     def callsign(self):
-        try:
-            return self.data['callsign']
-
-        except KeyError:
-            return
+        return self.data.get('callsign', None)
 
     @property
     @handle_parse_error
@@ -396,6 +413,9 @@ class StationModel(BaseModel):
 
         except KeyError:
             return
+
+    def channel(self):
+        return self.data.get('channel', None)
 
 
 class ScheduleModel(BaseModel):

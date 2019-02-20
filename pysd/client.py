@@ -6,6 +6,7 @@ import json
 from itertools import groupby, chain, islice
 
 from .models import ProgramModel, LineupModel, ScheduleModel
+from .stores import NullStore
 
 
 LOGGER = logging.getLogger(__name__)
@@ -22,12 +23,6 @@ class ErrorResponse(Exception):
     def __init__(self, message, data=None):
         super().__init__(message)
         self.data = data
-
-
-class ServiceOffline(Exception):
-    def __init__(self, message, response=None):
-        super().__init__(message)
-        self.response = response
 
 
 class SDClient(object):
@@ -71,8 +66,6 @@ class SDClient(object):
         data = self._request(
             'post', '/token',
             data={'username': self.username, 'password': password_hash})
-        if data['code'] != 0:
-            raise ServiceOffline(data['response'], data)
         self.token = data['token']
 
     def get_lineups(self):
@@ -105,7 +98,7 @@ class SDClient(object):
         # Store the station_ids for the next step...
         self._station_ids = station_ids
 
-    def _get_schedules(self):
+    def get_schedules(self):
         # We need the data that this method caches. If the user did not call it
         # call it now.
         if self._station_ids is None:
@@ -135,6 +128,8 @@ class SDClient(object):
             data = self._request('post', '/schedules/md5', data=list(chunk))
 
             for station_id, days in data.items():
+                if not days:
+                    continue
                 for day, d in days.items():
                     shashes.append(((station_id, day), d['md5']))
 
@@ -172,13 +167,22 @@ class SDClient(object):
         # Store program_ids for the next step...
         self._program_ids = program_ids
 
-    def get_programs(self):
+    def get_programs(self, lineups=None, schedules=None):
+        if lineups is None:
+            lineups = self.get_lineups()
+        stations = {}
+        for lineup in lineups:
+            for station in lineup.stations:
+                stations[station.id] = station
+
         # Map program IDs to their station / airtime for data merge.
-        schedules = {}
-        for station in self._get_schedules():
+        if schedules is None:
+            schedules = self.get_schedules()
+        airtimes = {}
+        for station in schedules:
             for program in station.programs:
                 # Use `.data` attribute to get original dictionary values.
-                schedules[program.id] = {
+                airtimes[program.id] = {
                     'airDateTime': program.data['airDateTime'],
                     'duration': program.data['duration'],
                     'stationID': station.data['stationID'],
@@ -215,7 +219,8 @@ class SDClient(object):
             # Merge the schedule, program, metadata and description data and
             # yield that.
             for program in programs:
-                program.update(schedules.pop(program['programID']))
+                program.update(airtimes.pop(program['programID']))
+                program.update(stations[program['stationID']].data)
 
                 try:
                     program.update(metadata.pop(program['programID']))
