@@ -30,7 +30,7 @@ class LoginRequired(Exception):
         super().__init__('Call login() first.')
 
 
-class SDClient(object):
+class SDGrabber(object):
     token = None
     base_url = 'https://json.schedulesdirect.org/20141201/'
 

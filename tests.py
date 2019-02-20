@@ -5,7 +5,7 @@ from datetime import timezone
 import responses
 from responses import GET, POST
 
-from sdgrabber import SDClient, ErrorResponse
+from sdgrabber import SDGrabber, ErrorResponse
 from sdgrabber.stores import _diff
 from sdgrabber.models import _parse_datetime, _parse_date
 
@@ -29,10 +29,10 @@ def mock_get(path, body):
 
 class BaseTestCase(unittest.TestCase):
     def setUp(self):
-        self.client = SDClient(USERNAME, PASSWORD)
+        self.client = SDGrabber(USERNAME, PASSWORD)
 
 
-class SDClientTestCase(BaseTestCase):
+class SDGrabberTestCase(BaseTestCase):
     @responses.activate
     def test_login_fail(self):
         mock_post('/token', '{"code": 3000, "response": "SERVICES_OFFLINE", '

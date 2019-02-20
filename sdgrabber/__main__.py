@@ -5,7 +5,7 @@ from datetime import timedelta
 
 from lxml import etree
 
-from .client import SDClient
+from .client import SDGrabber
 from .stores import PickleStore
 
 
@@ -26,7 +26,7 @@ def main():
         return
 
     store = PickleStore(path='.')
-    api = SDClient(username, password, store)
+    api = SDGrabber(username, password, store)
     api.login()
 
     with open('xmltv.xml', 'wb') as f, etree.xmlfile(f) as x:
