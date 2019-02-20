@@ -5,7 +5,7 @@ from pipenv.project import Project
 from pipenv.utils import convert_deps_to_pip
 
 
-NAME = 'pysd'
+NAME = 'sdgrabber'
 VERSION = '0.1'
 
 
@@ -26,7 +26,7 @@ setup(
     author_email='btimby@gmail.com',
     url='http://github.com/btimby/' + NAME + '/',
     license=license,
-    packages=["pysd"],
+    packages=[NAME],
     classifiers=[
         'License :: OSI Approved :: MIT License',
         'Programming Language :: Python :: 3.0',

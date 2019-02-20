@@ -5,9 +5,9 @@ from datetime import timezone
 import responses
 from responses import GET, POST
 
-from pysd import SDClient, ErrorResponse
-from pysd.stores import _diff
-from pysd.models import _parse_datetime, _parse_date
+from sdgrabber import SDClient, ErrorResponse
+from sdgrabber.stores import _diff
+from sdgrabber.models import _parse_datetime, _parse_date
 
 
 USERNAME = 'test_username'
