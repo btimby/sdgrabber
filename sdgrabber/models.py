@@ -198,6 +198,7 @@ class ProgramModel(BaseModel):
     @handle_parse_error
     def __init__(self, data):
         super().__init__(data)
+        self.id = data['programID']
         self.genres = data.get('genres', [])
         self.entity_type = data.get('entityType', None)
         self.show_type = data.get('showType', None)
