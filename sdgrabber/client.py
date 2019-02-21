@@ -45,8 +45,8 @@ class SDGrabber(object):
     def _request(self, method, path, headers=None, data=None, **kwargs):
         _headers = {
             'Content-Type': 'application/json',
-            'User-Agent': 'Python / pysd 1.0 / '
-                          'https://github.com/btimby/pysd/',
+            'User-Agent': 'Python / sdgrabber 1.0 / '
+                          'https://github.com/btimby/sdgrabber/',
         }
         if self.token is not None:
             _headers['Token'] = self.token

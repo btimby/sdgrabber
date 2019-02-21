@@ -93,33 +93,33 @@ class PickleStore(BaseStore):
         self.path = path or tempfile.gettempdir()
 
     def save_schedules(self, schedules):
-        with open(pathjoin(self.path, 'schedules.pysd'), 'wb') as f:
+        with open(pathjoin(self.path, 'schedules.sd'), 'wb') as f:
             pickle.dump(schedules, f)
 
     def load_schedules(self):
-        path = pathjoin(self.path, 'schedules.pysd')
+        path = pathjoin(self.path, 'schedules.sd')
         if not isfile(path):
             return {}
         with open(path, 'rb') as f:
             return pickle.load(f)
 
     def save_lineups(self, lineups):
-        with open(pathjoin(self.path, 'lineups.pysd'), 'wb') as f:
+        with open(pathjoin(self.path, 'lineups.sd'), 'wb') as f:
             pickle.dump(lineups, f)
 
     def load_lineups(self):
-        path = pathjoin(self.path, 'lineups.pysd')
+        path = pathjoin(self.path, 'lineups.sd')
         if not isfile(path):
             return {}
         with open(path, 'rb') as f:
             return pickle.load(f)
 
     def save_programs(self, programs):
-        with open(pathjoin(self.path, 'programs.pysd'), 'wb') as f:
+        with open(pathjoin(self.path, 'programs.sd'), 'wb') as f:
             pickle.dump(programs, f)
 
     def load_programs(self):
-        path = pathjoin(self.path, 'programs.pysd')
+        path = pathjoin(self.path, 'programs.sd')
         if not isfile(path):
             return {}
         with open(path, 'rb') as f:
