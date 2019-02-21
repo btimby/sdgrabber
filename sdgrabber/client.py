@@ -1,8 +1,10 @@
+import os
 import requests
 import hashlib
 import logging
 import json
 
+from functools import wraps
 from itertools import groupby, chain, islice
 
 from .models import ProgramModel, LineupModel, ScheduleModel
@@ -11,12 +13,6 @@ from .stores import NullStore
 
 LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(logging.NullHandler())
-
-
-def chunker(iterable, size=10):
-    iterator = iter(iterable)
-    for first in iterator:
-        yield chain([first], islice(iterator, size - 1))
 
 
 class ErrorResponse(Exception):
@@ -30,12 +26,47 @@ class LoginRequired(Exception):
         super().__init__('Call login() first.')
 
 
+class NoCredentials(Exception):
+    def __init__(self):
+        super().__init__('No credentials. Set environment or arguments.')
+
+
+def chunker(iterable, size=10):
+    iterator = iter(iterable)
+    for first in iterator:
+        yield chain([first], islice(iterator, size - 1))
+
+
+def login_required(fn):
+    @wraps(fn)
+    def inner(self, *args, **kwargs):
+        if self.token is None:
+            raise LoginRequired()
+
+        return fn(self, *args, **kwargs)
+
+    return inner
+
+
+def _get_credentials():
+    try:
+        username = os.environ['SD_USERNAME']
+        password = os.environ['SD_PASSWORD']
+    except KeyError:
+        raise NoCredentials()
+    return username, password
+
+
 class SDGrabber(object):
     token = None
     base_url = 'https://json.schedulesdirect.org/20141201/'
 
-    def __init__(self, username, password, store=None):
+    def __init__(self, username=None, password=None, store=None):
         super().__init__()
+
+        if username is None and password is None:
+            username, password = _get_credentials()
+
         self.username = username
         self.password = password
         self.store = store or NullStore()
@@ -73,14 +104,21 @@ class SDGrabber(object):
             data={'username': self.username, 'password': password_hash})
         self.token = data['token']
 
+    @login_required
+    def status(self):
+        '''
+        Gets system status, account status and lineups.
+        '''
+        # TODO: return a model.
+        return self._request('get', '/status')
+
+    @login_required
     def get_lineups(self):
         '''
-        Downloads system status and obtains the lineups.
+        Obtains the lineups registered to the account.
         '''
-        if self.token is None:
-            raise LoginRequired()
 
-        data = self._request('get', '/status')
+        data = self.status()
         # While not a hash, we can use the modified date like one. If the
         # modified date differs from what we have in our store, then the lineup
         # has changed since our last download.
@@ -100,16 +138,13 @@ class SDGrabber(object):
                 {'stationID': s['stationID']} for s in data['stations']
             ))
 
-            # TODO: yield a model here to aid in extraction of data.
             yield LineupModel(data)
 
         # Store the station_ids for the next step...
         self._station_ids = station_ids
 
+    @login_required
     def get_schedules(self):
-        if self.token is None:
-            raise LoginRequired()
-
         # We need the data that this method caches. If the user did not call it
         # call it now.
         if self._station_ids is None:
@@ -133,7 +168,8 @@ class SDGrabber(object):
         # [(stationId, '9/1/2019', md5)]
         #
         # Our data is naturally sorted by stationID, day, thus groupby() is
-        # going to be able to keep station information together.
+        # going to be able to keep station information together. This allows us
+        # to meet the 5000 station limit but request all days for each station.
         shashes = []
         for chunk in chunker(self._station_ids, 5000):
             data = self._request('post', '/schedules/md5', data=list(chunk))
@@ -153,11 +189,10 @@ class SDGrabber(object):
             # Convert each group into a dictionary in the form:
             #
             # {
-            #   stationID: {
-            #     'days': [
-            #       '9/1/2019', ...
-            #     ]
-            #   }
+            #   stationID: '1234',
+            #   'days': [
+            #     '9/1/2019', ...
+            #   ]
             # }
             station_days = [
                 {'stationID': station, 'days': [d[1] for d in days]}
@@ -178,10 +213,8 @@ class SDGrabber(object):
         # Store program_ids for the next step...
         self._program_ids = program_ids
 
+    @login_required
     def get_programs(self, lineups=None, schedules=None):
-        if self.token is None:
-            raise LoginRequired()
-
         if lineups is None:
             lineups = self.get_lineups()
         stations = {}
@@ -196,16 +229,17 @@ class SDGrabber(object):
         for station in schedules:
             for program in station.programs:
                 # Use `.data` attribute to get original dictionary values.
-                airtimes[program.id] = {
+                airtime = {
                     'airDateTime': program.data['airDateTime'],
                     'duration': program.data['duration'],
-                    'stationID': station.data['stationID'],
+                    'programID': program.data['programID'],
                 }
+                airtime.update(station.data)
+                airtimes.setdefault(program.id, []).append(airtime)
 
-        # This phase is simpler, we have just a list of programIDs and hashes
-        # that we need to diff and fetch in batches. The programs
-        # endpoint allows 5000, but the metadata endpoint allows 500. We use
-        # 500 so we can merge data.
+        # We have a list of programIDs and hashes that we need to diff and
+        # fetch in batches. The programs endpoint allows 5000, but the metadata
+        # endpoint allows 500. We use the smaller one so we can merge data.
         for chunk in chunker(
                 self.store.diff_programs(self._program_ids), 500):
             data = list(chunk)
@@ -213,8 +247,8 @@ class SDGrabber(object):
             metadata = self._request(
                 'post', '/metadata/description', data=data)
 
-            # For some reason they only want the leftmost 10 chars, we aim to
-            # please...
+            # For some reason they only want the leftmost 10 chars for just
+            # this endpoint, we aim to please...
             data = [d[:10] for d in data]
 
             # This data is in a different format, a list not a dict, make dict
@@ -230,11 +264,10 @@ class SDGrabber(object):
                     continue
                 artwork[item.pop('programID')] = item
 
-            # Merge the schedule, program, metadata and description data and
-            # yield that.
+            # Merge the schedule, program, metadata and description and yield
+            # that.
             for program in programs:
-                program.update(airtimes.pop(program['programID']))
-                program.update(stations[program['stationID']].data)
+                program['schedules'] = airtimes.pop(program['programID'])
 
                 try:
                     program.update(metadata.pop(program['programID']))
@@ -257,7 +290,6 @@ class SDGrabber(object):
                     # Not all programs have artwork...
                     pass
 
-                # TODO: yield a model here to aid in extraction of data.
                 yield ProgramModel(program)
 
         # Clear our cached data.

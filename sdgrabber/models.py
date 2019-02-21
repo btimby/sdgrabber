@@ -275,13 +275,8 @@ class ProgramModel(BaseModel):
 
     @property
     @handle_parse_error
-    def schedule(self):
-        return ProgramScheduleModel(self.data)
-
-    @property
-    @handle_parse_error
-    def station(self):
-        return StationModel(self.data)
+    def schedules(self):
+        return [ProgramScheduleModel(s) for s in self.data['schedules']]
 
     @property
     @handle_parse_error
@@ -513,3 +508,8 @@ class ProgramScheduleModel(BaseModel):
         if len(ratings) == 0:
             return
         return ratings[0]
+
+    @property
+    @handle_parse_error
+    def station(self):
+        return StationModel(self.data)

@@ -16,15 +16,8 @@ def main():
     logger.setLevel(logging.INFO)
     logger.addHandler(logging.StreamHandler())
 
-    try:
-        username = os.environ['SD_USERNAME']
-        password = os.environ['SD_PASSWORD']
-    except KeyError:
-        print('export SD_USERNAME=username and SD_PASSWORD=password')
-        return
-
     store = PickleStore(path='.')
-    api = SDGrabber(username, password, store)
+    api = SDGrabber(store=store)
     api.login()
 
     with open('xmltv.xml', 'wb') as f, etree.xmlfile(f) as x:
@@ -56,39 +49,41 @@ def main():
 
             i = 0
             for program in api.get_programs(lineups=lineups):
-                i += 1
-                attrs = {
-                    'start': program.schedule.airdatetime.strftime('%Y%m%d%H%M%S'),
-                    'stop': program.schedule.enddatetime.strftime('%Y%m%d%H%M%S'),
-                    'duration': program.schedule.duration,
-                    'channel': program.station.id,
-                }
-                with x.element('programme'):
-                    with x.element('title'):
-                        x.write(program.title)
+                for schedule in program.schedules:
+                    i += 1
+                    attrs = {
+                        'start': schedule.airdatetime.strftime('%Y%m%d%H%M%S'),
+                        'stop': schedule.enddatetime.strftime('%Y%m%d%H%M%S'),
+                        'duration': schedule.duration,
+                        'channel': schedule.station.id,
+                    }
+                    with x.element('programme'):
+                        with x.element('title'):
+                            x.write(program.title)
 
-                    if program.subtitle:
-                        with x.element('sub-title', {'lang': 'en'}):
-                            x.write(program.subtitle)
+                        if program.subtitle:
+                            with x.element('sub-title', {'lang': 'en'}):
+                                x.write(program.subtitle)
 
-                    if program.description:
-                        with x.element('desc', {'lang': 'en'}):
-                            x.write(program.description)
+                        if program.description:
+                            with x.element('desc', {'lang': 'en'}):
+                                x.write(program.description)
 
-                    if program.actors:
-                        with x.element('credits'):
-                            for actor in program.actors:
-                                with x.element('actor'):
-                                    x.write(actor.name)
+                        if program.actors:
+                            with x.element('credits'):
+                                for actor in program.actors:
+                                    with x.element('actor'):
+                                        x.write(actor.name)
 
-                    for genre in program.genres:
-                        with x.element('category', {'lang': 'en'}):
-                            x.write(genre)
+                        for genre in program.genres:
+                            with x.element('category', {'lang': 'en'}):
+                                x.write(genre)
 
-                    if program.orig_airdate:
-                        with x.element('date'):
-                            x.write(
-                                program.orig_airdate.strftime('%Y%m%d%H%M%S'))
+                        if program.orig_airdate:
+                            with x.element('date'):
+                                x.write(
+                                    program.orig_airdate \
+                                        .strftime('%Y%m%d%H%M%S'))
 
                     # x.element()
             LOGGER.info('Got %i programs.', i)
