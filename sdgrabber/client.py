@@ -234,7 +234,7 @@ class SDGrabber(object):
                     'duration': program.data['duration'],
                     'programID': program.data['programID'],
                 }
-                airtime.update(station.data)
+                airtime.update(stations[station.id].data)
                 airtimes.setdefault(program.id, []).append(airtime)
 
         # We have a list of programIDs and hashes that we need to diff and
