@@ -24,8 +24,8 @@ def main():
         attrs = {
             'source-info-url': 'https://www.schedulesdirect.org/',
             'source-info-name': 'Schedules Direct',
-            'generator-info-name': 'pysd',
-            'generator-info-url': 'https://github.com/btimby/pysd/',
+            'generator-info-name': 'sdgrabber',
+            'generator-info-url': 'https://github.com/btimby/sdgrabber/',
         }
         with x.element('tv', attrs):
 
