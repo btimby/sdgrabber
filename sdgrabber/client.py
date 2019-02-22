@@ -7,7 +7,9 @@ import json
 from functools import wraps
 from itertools import groupby, chain, islice
 
-from .models import ProgramModel, LineupModel, ScheduleModel
+from .models import (
+    StatusModel, StatusLineupModel, ProgramModel, LineupModel, ScheduleModel
+)
 from .stores import NullStore
 
 
@@ -109,8 +111,8 @@ class SDGrabber(object):
         '''
         Gets system status, account status and lineups.
         '''
-        # TODO: return a model.
-        return self._request('get', '/status')
+
+        return StatusModel(self._request('get', '/status'))
 
     @login_required
     def get_lineups(self):
@@ -118,19 +120,9 @@ class SDGrabber(object):
         Obtains the lineups registered to the account.
         '''
 
-        data = self.status()
-        # While not a hash, we can use the modified date like one. If the
-        # modified date differs from what we have in our store, then the lineup
-        # has changed since our last download.
-        lhashes = [
-            (l['lineup'], l['modified']) for l in data['lineups']
-        ]
-
-        # Iterate over lineup names where the "hash" (actually a modified date)
-        # has changed from what the store contains.
-        station_ids = []
-        for name in self.store.diff_lineups(lhashes):
-            data = self._request('get', '/lineups/%s' % name)
+        status, station_ids = self.status(), []
+        for lineup in status.lineups:
+            data = self._request('get', '/lineups/%s' % lineup.name)
 
             # Lineup is a dictionary containing "maps" and "stations". Below we
             # extract all the stationIDs belonging to lineups that have change.
@@ -204,6 +196,8 @@ class SDGrabber(object):
             data = self._request('post', '/schedules', data=station_days)
 
             for schedule in data:
+                if 'response' in schedule:
+                    raise ErrorResponse(schedule['message'], schedule)
                 program_ids.extend(
                     ((s['programID'], s['md5']) for s in schedule['programs'])
                 )

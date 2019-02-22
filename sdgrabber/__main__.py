@@ -82,11 +82,11 @@ def main():
                         if program.orig_airdate:
                             with x.element('date'):
                                 x.write(
-                                    program.orig_airdate \
-                                        .strftime('%Y%m%d%H%M%S'))
+                                    program.orig_airdate
+                                    .strftime('%Y%m%d%H%M%S'))
 
-                    # x.element()
-            LOGGER.info('Got %i programs.', i)
+                LOGGER.info('Got %i programs.', i)
+
 
 if __name__ == '__main__':
     main()

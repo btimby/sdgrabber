@@ -69,6 +69,23 @@ class BaseModel(object):
         self.data = data
 
 
+class StatusModel(BaseModel):
+    def __init__(self, data):
+        super().__init__(data)
+
+    @property
+    @handle_parse_error
+    def lineups(self):
+        return [StatusLineupModel(l) for l in self.data['lineups']]
+
+
+class StatusLineupModel(BaseModel):
+    def __init__(self, data):
+        super().__init__(data)
+        self.name = data['lineup']
+        self.modified = _parse_datetime(data['modified'])
+
+
 class LineupModel(BaseModel):
     '''
     Represents a lineup.

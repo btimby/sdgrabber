@@ -24,14 +24,6 @@ def _diff(old, new):
 
 class BaseStore(abc.ABC):
     @abc.abstractmethod
-    def save_lineups(self, lineups):
-        raise NotImplementedError()
-
-    @abc.abstractmethod
-    def load_lineups(self):
-        raise NotImplementedError()
-
-    @abc.abstractmethod
     def save_schedules(self, schedules):
         raise NotImplementedError()
 
@@ -47,11 +39,6 @@ class BaseStore(abc.ABC):
     def load_programs(self):
         raise NotImplementedError()
 
-    def diff_lineups(self, lineups):
-        old = self.load_lineups()
-        yield from _diff(old, lineups)
-        self._lineups = old
-
     def diff_schedules(self, schedules):
         old = self.load_schedules()
         yield from _diff(old, schedules)
@@ -63,7 +50,6 @@ class BaseStore(abc.ABC):
         self._programs = old
 
     def save(self):
-        self.save_lineups(self._lineups)
         self.save_schedules(self._schedules)
         self.save_programs(self._programs)
 
@@ -73,12 +59,6 @@ class NullStore(BaseStore):
         pass
 
     def load_schedules(self):
-        return {}
-
-    def save_lineups(self, lineups):
-        pass
-
-    def load_lineups(self):
         return {}
 
     def save_programs(self, programs):
@@ -98,17 +78,6 @@ class PickleStore(BaseStore):
 
     def load_schedules(self):
         path = pathjoin(self.path, 'schedules.sd')
-        if not isfile(path):
-            return {}
-        with open(path, 'rb') as f:
-            return pickle.load(f)
-
-    def save_lineups(self, lineups):
-        with open(pathjoin(self.path, 'lineups.sd'), 'wb') as f:
-            pickle.dump(lineups, f)
-
-    def load_lineups(self):
-        path = pathjoin(self.path, 'lineups.sd')
         if not isfile(path):
             return {}
         with open(path, 'rb') as f:

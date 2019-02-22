@@ -6,7 +6,7 @@ import responses
 from responses import GET, POST
 
 from sdgrabber import SDGrabber, ErrorResponse
-from sdgrabber.stores import _diff
+from sdgrabber.stores import _diff, NullStore
 from sdgrabber.models import _parse_datetime, _parse_date
 
 
@@ -43,7 +43,6 @@ class SDGrabberTestCase(BaseTestCase):
     @responses.activate
     def test_login_succeed(self):
         mock_post('/token', '{"code": 0, "message": "OK", "token": "IamAtoken"}')
-        mock_get('/status', '{"code": 0, "status": "green"}')
         self.client.login()
         self.assertEqual(self.client.token, 'IamAtoken')
 
