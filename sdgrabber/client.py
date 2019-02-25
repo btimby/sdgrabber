@@ -145,7 +145,7 @@ class SDGrabber(object):
             names = [i[1] for i in channels]
 
         else:
-            names, numbers = [], []
+            numbers, names = [], []
 
         status, station_ids = self.status(), []
         for lineup in status.lineups:
