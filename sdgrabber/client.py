@@ -251,9 +251,9 @@ class SDGrabber(object):
         self._program_ids = program_ids
 
     @login_required
-    def get_programs(self, lineups=None, schedules=None):
+    def get_programs(self, lineups=None, schedules=None, channels=None):
         if lineups is None:
-            lineups = self.get_lineups()
+            lineups = self.get_lineups(channels=channels)
         stations = {}
         for lineup in lineups:
             for station in lineup.stations:
