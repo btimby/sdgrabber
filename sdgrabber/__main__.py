@@ -54,10 +54,11 @@ def main():
                     attrs = {
                         'start': schedule.airdatetime.strftime('%Y%m%d%H%M%S'),
                         'stop': schedule.enddatetime.strftime('%Y%m%d%H%M%S'),
-                        'duration': schedule.duration,
+                        'duration': str(schedule.duration),
                         'channel': schedule.station.id,
+                        'program_id': schedule.program.id,
                     }
-                    with x.element('programme'):
+                    with x.element('programme', attrs):
                         with x.element('title'):
                             x.write(program.title)
 

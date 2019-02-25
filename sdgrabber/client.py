@@ -8,7 +8,8 @@ from functools import wraps
 from itertools import groupby, chain, islice
 
 from .models import (
-    StatusModel, StatusLineupModel, ProgramModel, LineupModel, ScheduleModel
+    _parse_datetime, StatusModel, StatusLineupModel, ProgramModel, LineupModel,
+    ScheduleModel,
 )
 from .stores import NullStore
 
@@ -115,20 +116,54 @@ class SDGrabber(object):
         return StatusModel(self._request('get', '/status'))
 
     @login_required
-    def get_lineups(self):
+    def get_lineups(self, channels=None):
         '''
         Obtains the lineups registered to the account.
+
+        Call should provide channels as a dictionary:
+
+        {
+            channel_number: channel_callsign,
+            ...
+        }
+
+        or a list of tuples:
+
+        [
+            (channel_number, channel_name),
+            ...
+        ]
+
+        If provided, only schedules for these channels will be downloaded.
         '''
+
+        if isinstance(channels, dict):
+            numbers, names = set(channels.keys()), set(channels.values())
+
+        elif channels is not None:
+            numbers = [i[0] for i in channels]
+            names = [i[1] for i in channels]
+
+        else:
+            names, numbers = [], []
 
         status, station_ids = self.status(), []
         for lineup in status.lineups:
             data = self._request('get', '/lineups/%s' % lineup.name)
 
+            # So we can look up the channel number in the next step...
+            station_map = {m['stationID']: m['channel'] for m in data['map']}
+
             # Lineup is a dictionary containing "maps" and "stations". Below we
-            # extract all the stationIDs belonging to lineups that have change.
-            station_ids.extend((
-                {'stationID': s['stationID']} for s in data['stations']
-            ))
+            # extract all the stationIDs belonging to lineups that have
+            # changed. We also account for stations (channels) that the user
+            # does not have by skipping them if a list is provided.
+            for s in data['stations']:
+                number, name = station_map[s['stationID']], s['callsign']
+                if channels:
+                    if number not in numbers and name not in names:
+                        continue
+                station_ids.append({'stationID': s['stationID']})
 
             yield LineupModel(data)
 
@@ -182,12 +217,12 @@ class SDGrabber(object):
             #
             # {
             #   stationID: '1234',
-            #   'days': [
-            #     '9/1/2019', ...
+            #   'date': [
+            #     'yyyy-mm-dd', ...
             #   ]
             # }
             station_days = [
-                {'stationID': station, 'days': [d[1] for d in days]}
+                {'stationID': station, 'date': [d[1] for d in days]}
                 for station, days in chunk
             ]
             # Now we get the schedule for each day of each station that has
@@ -197,7 +232,15 @@ class SDGrabber(object):
 
             for schedule in data:
                 if 'response' in schedule:
-                    raise ErrorResponse(schedule['message'], schedule)
+                    station_id = schedule['stationID']
+                    day = _parse_datetime(schedule['airDateTime'])
+                    day = day.date().strftime('%Y-%m-%d')
+
+                    self.store.remove_schedule((station_id, day))
+
+                    LOGGER.error(schedule['message'])
+                    continue
+
                 program_ids.extend(
                     ((s['programID'], s['md5']) for s in schedule['programs'])
                 )

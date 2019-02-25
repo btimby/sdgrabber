@@ -44,6 +44,9 @@ class BaseStore(abc.ABC):
         yield from _diff(old, schedules)
         self._schedules = old
 
+    def remove_schedule(self, key):
+        del self._schedules[key]
+
     def diff_programs(self, programs):
         old = self.load_programs()
         yield from _diff(old, programs)
